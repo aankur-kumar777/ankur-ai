@@ -11,8 +11,6 @@ services:
     envVars:
       - key: GEMINI_API_KEY
         sync: false
-      - key: ACCESS_CODE
-        sync: false
       - key: LIVE_VOICE
         value: Charon
       - key: MAX_SESSION_SECONDS
