@@ -1,455 +1,331 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0b0c12">
-  <title>Ankur AI</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      color-scheme: dark;
-      --bg: #0b0c12;
-      --surface: #151722;
-      --line: #292d3b;
-      --text: #f4f5f8;
-      --muted: #9298a8;
-      --accent: #8274f5;
-      --accent-2: #5747c9;
-      --danger: #e45b68;
-    }
-    * { box-sizing: border-box; }
-    html, body { min-height: 100%; margin: 0; }
-    body {
-      min-height: 100svh;
-      padding: max(20px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
-      display: flex;
-      justify-content: center;
-      background: radial-gradient(ellipse at 50% 20%, rgba(105, 91, 220, .17), transparent 48%), var(--bg);
-      color: var(--text);
-      font-family: 'DM Sans', system-ui, sans-serif;
-    }
-    main {
-      width: min(100%, 520px);
-      min-height: calc(100svh - 38px);
-      display: flex;
-      flex-direction: column;
-    }
-    header { text-align: center; padding: clamp(42px, 11vh, 100px) 0 18px; }
-    .orb {
-      width: 112px;
-      height: 112px;
-      margin: 0 auto 26px;
-      display: grid;
-      place-items: center;
-      border-radius: 50%;
-      color: white;
-      background: linear-gradient(145deg, #958aff, #5948c6 72%);
-      box-shadow: 0 12px 55px rgba(102, 86, 221, .27), inset 0 1px 1px rgba(255,255,255,.25);
-      transition: transform .25s ease, box-shadow .25s ease;
-      position: relative;
-    }
-    .orb::after {
-      content: '';
-      position: absolute;
-      inset: -1px;
-      border: 1px solid rgba(164, 153, 255, .65);
-      border-radius: 50%;
-      opacity: 0;
-    }
-    .orb.connecting { animation: breathe 1.2s ease-in-out infinite alternate; }
-    .orb.listening::after, .orb.speaking::after { animation: ring 2s ease-out infinite; }
-    .orb.speaking { animation: speak .55s ease-in-out infinite alternate; }
-    @keyframes ring { 0% { transform: scale(1); opacity: .5; } 100% { transform: scale(1.55); opacity: 0; } }
-    @keyframes speak { to { transform: scale(1.055); } }
-    @keyframes breathe { to { transform: scale(1.035); opacity: .8; } }
-    h1 { margin: 0; font-size: 1.8rem; font-weight: 700; letter-spacing: -.7px; }
-    .subtitle { margin: 9px 0 0; color: var(--muted); font-size: .98rem; }
-    .status {
-      min-height: 24px;
-      margin: 16px 0 18px;
-      color: #c5c8d3;
-      text-align: center;
-      font-size: .92rem;
-    }
-    #log {
-      width: 100%;
-      flex: 1;
-      min-height: 30px;
-      max-height: 30vh;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 9px;
-      padding: 4px 2px 14px;
-      scrollbar-width: thin;
-    }
-    .msg {
-      max-width: 88%;
-      padding: 10px 14px;
-      border-radius: 16px;
-      font-size: .94rem;
-      line-height: 1.5;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-    }
-    .msg.user { align-self: flex-end; background: #5548b5; border-bottom-right-radius: 5px; }
-    .msg.ai { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); border-bottom-left-radius: 5px; }
-    .error {
-      min-height: 20px;
-      margin: 4px 0 10px;
-      color: #ff929b;
-      text-align: center;
-      font-size: .9rem;
-    }
-    .passcode {
-      width: min(100%, 260px);
-      margin: 0 auto 12px;
-      padding: 12px 15px;
-      border: 1px solid var(--line);
-      border-radius: 13px;
-      outline: none;
-      background: var(--surface);
-      color: var(--text);
-      font: inherit;
-      text-align: center;
-    }
-    .passcode:focus { border-color: var(--accent); }
-    .controls {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 14px;
-      padding: 14px 0 18px;
-    }
-    button {
-      border: 0;
-      font: inherit;
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-    }
-    button:disabled { opacity: .55; cursor: default; }
-    .call {
-      min-width: 174px;
-      min-height: 54px;
-      padding: 0 28px;
-      border-radius: 999px;
-      color: white;
-      background: linear-gradient(135deg, var(--accent), var(--accent-2));
-      box-shadow: 0 8px 28px rgba(99, 83, 210, .27);
-      font-weight: 700;
-      font-size: 1rem;
-    }
-    .call.end { background: var(--danger); box-shadow: 0 8px 25px rgba(228, 91, 104, .2); }
-    .round {
-      width: 52px;
-      height: 52px;
-      display: grid;
-      place-items: center;
-      border: 1px solid var(--line);
-      border-radius: 50%;
-      background: var(--surface);
-      color: var(--text);
-    }
-    .round.on { background: #3a2630; border-color: #75414c; }
-    .hidden { display: none !important; }
-    @media (max-height: 680px) {
-      header { padding-top: 26px; }
-      .orb { width: 88px; height: 88px; margin-bottom: 18px; }
-      #log { max-height: 24vh; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ankur AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#0e0d16; --card:#171527; --line:#2a2742; --text:#ecebf6; --muted:#9794b3; --a:#886cf1; --b:#5540b9; --ok:#4ade80; }
+  * { box-sizing:border-box; }
+  html,body { height:100%; margin:0; }
+  body { background:radial-gradient(ellipse at top, rgba(120,95,240,.22), transparent 55%), var(--bg);
+         color:var(--text); font-family:'DM Sans',system-ui,sans-serif;
+         display:flex; flex-direction:column; align-items:center;
+         padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom); }
+  main { width:100%; max-width:720px; flex:1; display:flex; flex-direction:column; min-height:0; }
+  header { text-align:center; padding:22px 0 8px; }
+  h1 { font-family:'Manrope',sans-serif; font-weight:800; font-size:1.9rem; letter-spacing:-1px; margin:14px 0 4px; }
+  .sub { color:var(--muted); font-size:.92rem; margin:0; }
+
+  .orb { width:104px; height:104px; margin:0 auto; border-radius:50%; position:relative;
+         background:linear-gradient(145deg,var(--a),var(--b)); display:grid; place-items:center; font-size:2.2rem;
+         box-shadow:0 10px 40px rgba(99,75,200,.4); transition:transform .2s; }
+  .orb::before,.orb::after { content:""; position:absolute; inset:0; border-radius:50%; border:2px solid var(--a); opacity:0; }
+  .orb.listening::before { animation:ring 2s ease-out infinite; }
+  .orb.speaking { animation:talk .55s ease-in-out infinite alternate; }
+  .orb.speaking::before { animation:ring 1.1s ease-out infinite; }
+  .orb.connecting { animation:talk 1s ease-in-out infinite alternate; opacity:.8; }
+  @keyframes ring { 0%{transform:scale(1);opacity:.55} 100%{transform:scale(1.7);opacity:0} }
+  @keyframes talk { from{transform:scale(1)} to{transform:scale(1.09)} }
+
+  .status { text-align:center; height:1.4em; margin:10px 0 6px; color:var(--muted); font-size:.9rem; }
+  .status b { color:var(--text); font-weight:500; }
+
+  #log { flex:1; overflow-y:auto; min-height:120px; padding:6px 2px 12px; display:flex; flex-direction:column; gap:10px; }
+  .msg { max-width:86%; padding:10px 14px; border-radius:16px; line-height:1.45; font-size:.97rem; white-space:pre-wrap; }
+  .msg.user { align-self:flex-end; background:var(--b); border-bottom-right-radius:5px; }
+  .msg.ai { align-self:flex-start; background:var(--card); border:1px solid var(--line); border-bottom-left-radius:5px; }
+  .empty { margin:auto; text-align:center; color:var(--muted); font-size:.95rem; padding:0 20px; }
+
+  .chips { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding:6px 0 10px; }
+  .chip { background:var(--card); border:1px solid var(--line); color:var(--text); border-radius:999px;
+          padding:8px 14px; font:inherit; font-size:.85rem; cursor:pointer; }
+  .chip:hover { border-color:var(--a); }
+  .chip:disabled { opacity:.4; cursor:default; }
+
+  .controls { display:flex; gap:10px; justify-content:center; align-items:center; padding:8px 0 18px; }
+  button.big { border:0; border-radius:999px; padding:15px 30px; font:inherit; font-weight:600; font-size:1rem; cursor:pointer; color:#fff;
+               background:linear-gradient(145deg,var(--a),var(--b)); box-shadow:0 8px 26px rgba(99,75,200,.35); }
+  button.big.end { background:#e5484d; box-shadow:0 8px 26px rgba(229,72,77,.3); }
+  button.round { width:52px; height:52px; border-radius:50%; border:1px solid var(--line); background:var(--card); color:var(--text); font-size:1.2rem; cursor:pointer; }
+  button.round.on { background:#e5484d; border-color:#e5484d; }
+  button:disabled { opacity:.5; cursor:default; }
+  .hidden { display:none !important; }
+  #code { background:var(--card); border:1px solid var(--line); color:var(--text); border-radius:12px; padding:12px 14px; font:inherit; width:160px; }
+  .dbg { text-align:center; color:#6f6c8f; font-size:.72rem; height:1.2em; margin-bottom:4px; font-variant-numeric:tabular-nums; }
+  .opt { color:var(--muted); font-size:.8rem; display:flex; align-items:center; gap:6px; justify-content:center; padding-bottom:6px; }
+  select { background:var(--card); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:7px 10px; font:inherit; font-size:.8rem; max-width:62%; }
+  .err { color:#ff8a8f; text-align:center; font-size:.9rem; padding:0 8px 8px; }
+  footer { color:var(--muted); font-size:.75rem; text-align:center; padding-bottom:10px; }
+</style>
 </head>
 <body>
 <main>
   <header>
-    <div class="orb" id="orb" aria-hidden="true">
-      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <rect x="9" y="2.5" width="6" height="12" rx="3"></rect>
-        <path d="M5.5 10.5a6.5 6.5 0 0 0 13 0M12 17v4m-4 0h8"></path>
-      </svg>
-    </div>
+    <div class="orb" id="orb">🎙️</div>
     <h1>Ankur AI</h1>
-    <p class="subtitle">A voice conversation with Ankur</p>
+    <p class="sub">Talk to me like a phone call. Interrupt any time.</p>
   </header>
 
-  <div class="status" id="status" aria-live="polite">Ready when you are</div>
-  <div id="log" aria-live="polite"></div>
-  <div class="error" id="error" role="status" aria-live="polite"></div>
+  <div class="status" id="status">Ready when you are</div>
+  <div class="dbg" id="dbg"></div>
 
-  <input id="passcode" class="passcode hidden" type="password" placeholder="Passcode" autocomplete="current-password" aria-label="Passcode">
+  <div id="log"><div class="empty" id="empty">Tap <b>Start call</b> and just start talking.<br>Headphones give the best experience.</div></div>
+
+  <div class="err hidden" id="err"></div>
+  <div class="chips" id="chips"></div>
+  <!-- <div class="opt" style="flex-wrap:wrap">
+    <select id="micSel"><option value="">Default microphone</option></select>
+    <button class="chip" id="testMic" type="button">Test mic</button>
+  </div> -->
+  <!-- <label class="opt"><input type="checkbox" id="raw"> Turn off noise processing (try this if the mic level stays 0)</label>
+  <label class="opt"><input type="checkbox" id="phones"> I'm using headphones (lets you interrupt the AI)</label> -->
 
   <div class="controls">
-    <button class="round hidden" id="mute" type="button" aria-label="Mute microphone" title="Mute microphone">
-      <svg id="muteIcon" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <rect x="9" y="2.5" width="6" height="12" rx="3"></rect>
-        <path d="M5.5 10.5a6.5 6.5 0 0 0 13 0M12 17v4m-4 0h8"></path>
-      </svg>
-    </button>
-    <button class="call" id="call" type="button">Start call</button>
+    <input id="code" class="hidden" placeholder="Access code" autocomplete="off">
+    <button class="round hidden" id="mute" title="Mute microphone" aria-label="Mute microphone">🎤</button>
+    <button class="big" id="call">Start call</button>
   </div>
+  <!-- <footer>AI-generated answers from a curated profile · may make mistakes</footer> -->
 </main>
 
 <script>
 const $ = (id) => document.getElementById(id);
-const orb = $('orb');
-const statusEl = $('status');
-const logEl = $('log');
-const errorEl = $('error');
-const callBtn = $('call');
-const muteBtn = $('mute');
-const passcodeInput = $('passcode');
+const orb = $('orb'), statusEl = $('status'), logEl = $('log'), errEl = $('err');
+const callBtn = $('call'), muteBtn = $('mute'), codeIn = $('code'), chipsEl = $('chips');
 
-let ws = null;
-let micCtx = null;
-let micStream = null;
-let node = null;
-let playCtx = null;
-let nextTime = 0;
-let sources = new Set();
-let muted = false;
-let ready = false;
-let active = false;
-let curUser = null;
-let curAI = null;
+let ws = null, micCtx = null, micStream = null, node = null, playCtx = null;
+let nextTime = 0, sources = new Set(), muted = false, ready = false, active = false;
+let curUser = null, curAI = null, gateUntil = 0;
+const cnt = { mic: 0, voice: 0, you: 0, ai: 0, intr: 0, level: 0 };
+const dbg = $('dbg');
+function showDbg() { dbg.textContent = active ? `mic level ${Math.min(99, Math.round(cnt.level * 300))} · mic sent ${cnt.mic} · voice received ${cnt.voice} · you ${cnt.you} · ai ${cnt.ai} · interrupted ${cnt.intr} · speaker ${playCtx ? playCtx.state : '-'}` : ''; }
 
-function setState(state) {
-  orb.className = 'orb ' + state;
+// ---------- Microphone selection + test ----------
+const micSel = $('micSel');
+let micLabel = '', watch = null;
+async function loadDevices() {
+  try {
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    const cur = micSel.value;
+    micSel.innerHTML = '<option value="">Default microphone</option>';
+    devs.filter(d => d.kind === 'audioinput').forEach((d, i) => {
+      const o = document.createElement('option'); o.value = d.deviceId;
+      o.textContent = d.label || ('Microphone ' + (i + 1)); micSel.appendChild(o);
+    });
+    micSel.value = cur;
+  } catch {}
+}
+function micConstraints() {
+  const raw = $('raw').checked;
+  const a = { echoCancellation: !raw, noiseSuppression: !raw, autoGainControl: !raw, channelCount: 1 };
+  if (micSel.value) a.deviceId = { exact: micSel.value };
+  return { audio: a };
+}
+async function testMic() {
+  if (active) return;
+  showErr('');
+  let s;
+  try { s = await navigator.mediaDevices.getUserMedia(micConstraints()); }
+  catch (e) { showErr('Microphone access was blocked or that device is unavailable: ' + e.message); return; }
+  await loadDevices();
+  const label = s.getAudioTracks()[0]?.label || 'microphone';
+  const ctx = new AudioContext(); await ctx.resume();
+  const an = ctx.createAnalyser(); an.fftSize = 1024; ctx.createMediaStreamSource(s).connect(an);
+  const buf = new Float32Array(an.fftSize); let peak = 0; const t0 = Date.now();
+  const iv = setInterval(() => {
+    an.getFloatTimeDomainData(buf);
+    let sum = 0; for (const v of buf) sum += v * v;
+    const rms = Math.sqrt(sum / buf.length); peak = Math.max(peak, rms);
+    dbg.textContent = `Testing "${label}" — say something… level ${Math.min(99, Math.round(rms * 300))}`;
+    if (Date.now() - t0 > 6000) {
+      clearInterval(iv); s.getTracks().forEach(t => t.stop()); ctx.close();
+      dbg.textContent = peak < 0.002
+        ? `No sound from "${label}". Pick another microphone above, or tick "turn off noise processing".`
+        : `Mic works: "${label}" (peak level ${Math.min(99, Math.round(peak * 300))}).`;
+    }
+  }, 100);
+}
+$('testMic').onclick = testMic;
+loadDevices();
+
+// ---------- UI helpers ----------
+function setState(s) {
+  orb.className = 'orb ' + s;
   const labels = {
-    idle: 'Ready when you are',
-    connecting: 'Connecting…',
-    listening: 'Listening',
-    speaking: 'Speaking'
+    idle: 'Ready when you are', connecting: 'Connecting…',
+    listening: '<b>Listening</b> — go ahead', speaking: '<b>Speaking</b> — talk to interrupt'
   };
-  statusEl.textContent = muted && active && state !== 'connecting'
-    ? 'Microphone muted'
-    : (labels[state] || '');
+  statusEl.innerHTML = muted && active && s !== 'connecting' ? 'Mic muted' : (labels[s] || '');
 }
-
-function showError(message = '') {
-  errorEl.textContent = message;
-}
-
+function showErr(msg) { errEl.textContent = msg; errEl.classList.toggle('hidden', !msg); }
 function addBubble(kind, text) {
-  const bubble = document.createElement('div');
-  bubble.className = 'msg ' + kind;
-  bubble.textContent = text;
-  logEl.appendChild(bubble);
-  logEl.scrollTop = logEl.scrollHeight;
-  return bubble;
+  $('empty')?.remove();
+  const d = document.createElement('div');
+  d.className = 'msg ' + kind; d.textContent = text; logEl.appendChild(d);
+  logEl.scrollTop = logEl.scrollHeight; return d;
 }
+function appendTo(bubble, text) { bubble.textContent += text; logEl.scrollTop = logEl.scrollHeight; }
 
-function appendTo(bubble, text) {
-  bubble.textContent += text;
-  logEl.scrollTop = logEl.scrollHeight;
-}
-
+// ---------- Microphone capture: native-rate PCM16 from an AudioWorklet (Gemini resamples) ----------
 const workletSrc = `
 class Cap extends AudioWorkletProcessor {
-  constructor() {
-    super();
-    this.size = Math.round(sampleRate * 0.1);
-    this.buf = new Int16Array(this.size);
-    this.n = 0;
-  }
+  constructor() { super(); this.size = Math.round(sampleRate * 0.1); this.buf = new Int16Array(this.size); this.n = 0; this.sum = 0; }
   process(inputs) {
-    const channel = inputs[0] && inputs[0][0];
-    if (!channel) return true;
-    for (let i = 0; i < channel.length; i++) {
-      const sample = Math.max(-1, Math.min(1, channel[i]));
-      this.buf[this.n++] = sample * 32767;
+    const ch = inputs[0] && inputs[0][0]; if (!ch) return true;
+    for (let i = 0; i < ch.length; i++) {
+      const v = Math.max(-1, Math.min(1, ch[i]));
+      this.buf[this.n++] = v * 32767; this.sum += v * v;
       if (this.n === this.size) {
-        this.port.postMessage({ audio: this.buf.slice().buffer });
-        this.n = 0;
+        this.port.postMessage({ b: this.buf.slice().buffer, rms: Math.sqrt(this.sum / this.size) });
+        this.n = 0; this.sum = 0;
       }
     }
     return true;
   }
 }
-registerProcessor('cap', Cap);
-`;
+registerProcessor('cap', Cap);`;
 
-function playPcm(buffer) {
+// ---------- Playback: schedule 24 kHz PCM16 chunks gaplessly ----------
+function playPcm(buf) {
   if (!playCtx) return;
-  if (buffer.byteLength % 2) buffer = buffer.slice(0, buffer.byteLength - 1);
-  const input = new Int16Array(buffer);
-  const samples = new Float32Array(input.length);
-  for (let i = 0; i < input.length; i++) samples[i] = input[i] / 32768;
-
-  const audioBuffer = playCtx.createBuffer(1, samples.length, 24000);
-  audioBuffer.copyToChannel(samples, 0);
-  const source = playCtx.createBufferSource();
-  source.buffer = audioBuffer;
-  source.connect(playCtx.destination);
-
+  cnt.voice++; showDbg();
+  if (buf.byteLength % 2) buf = buf.slice(0, buf.byteLength - 1);
+  const i16 = new Int16Array(buf), f32 = new Float32Array(i16.length);
+  for (let i = 0; i < i16.length; i++) f32[i] = i16[i] / 32768;
+  const ab = playCtx.createBuffer(1, f32.length, 24000); ab.copyToChannel(f32, 0);
+  const src = playCtx.createBufferSource(); src.buffer = ab; src.connect(playCtx.destination);
   const now = playCtx.currentTime;
   if (nextTime < now + 0.03) nextTime = now + 0.03;
-  source.start(nextTime);
-  nextTime += audioBuffer.duration;
-  sources.add(source);
-  source.onended = () => {
-    sources.delete(source);
-    if (!sources.size && active) setState('listening');
-  };
+  src.start(nextTime); nextTime += ab.duration;
+  gateUntil = Date.now() + Math.max(0, (nextTime - playCtx.currentTime) * 1000) + 500;
+  sources.add(src);
+  src.onended = () => { sources.delete(src); if (!sources.size && active) setState('listening'); };
   setState('speaking');
 }
-
 function stopPlayback() {
-  sources.forEach((source) => {
-    try { source.onended = null; source.stop(); } catch (_) {}
-  });
-  sources.clear();
-  nextTime = 0;
+  sources.forEach((s) => { try { s.onended = null; s.stop(); } catch {} });
+  sources.clear(); nextTime = 0;
 }
 
-async function startCall() {
-  showError('');
-  callBtn.disabled = true;
-  setState('connecting');
-
+// ---------- Call lifecycle ----------
+function chime() {  // short beep: if you hear this, your speaker output works
   try {
-    playCtx = new AudioContext({ sampleRate: 24000 });
+    const o = playCtx.createOscillator(), g = playCtx.createGain();
+    g.gain.value = 0.07; o.frequency.value = 660; o.connect(g); g.connect(playCtx.destination);
+    o.start(); o.stop(playCtx.currentTime + 0.15);
+  } catch {}
+}
+async function startCall() {
+  showErr(''); callBtn.disabled = true; setState('connecting');
+  // Must be created right inside the click handler or Safari/Chrome may keep it silent.
+  playCtx = new AudioContext({ sampleRate: 24000 }); playCtx.resume();
+  Object.keys(cnt).forEach(k => cnt[k] = 0);
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia(micConstraints());
+    micLabel = micStream.getAudioTracks()[0]?.label || 'microphone'; loadDevices();
+  } catch (e) {
+    showErr('Microphone access was blocked. Allow it in your browser settings and try again.');
+    callBtn.disabled = false; setState('idle'); return;
+  }
+  try {
     await playCtx.resume();
-    micStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        channelCount: 1
-      }
-    });
-    micCtx = new AudioContext();
-    await micCtx.resume();
-    const moduleUrl = URL.createObjectURL(new Blob([workletSrc], { type: 'application/javascript' }));
-    await micCtx.audioWorklet.addModule(moduleUrl);
-    URL.revokeObjectURL(moduleUrl);
-
-    const source = micCtx.createMediaStreamSource(micStream);
+    micCtx = new AudioContext(); await micCtx.resume();
+    await micCtx.audioWorklet.addModule(URL.createObjectURL(new Blob([workletSrc], { type: 'application/javascript' })));
+    const srcNode = micCtx.createMediaStreamSource(micStream);
     node = new AudioWorkletNode(micCtx, 'cap');
-    const silentSink = micCtx.createGain();
-    silentSink.gain.value = 0;
-    source.connect(node);
-    node.connect(silentSink);
-    silentSink.connect(micCtx.destination);
-
-    node.port.onmessage = (event) => {
-      if (!ready || muted || !ws || ws.readyState !== WebSocket.OPEN) return;
-      ws.send(event.data.audio);
+    const sink = micCtx.createGain(); sink.gain.value = 0;
+    srcNode.connect(node); node.connect(sink); sink.connect(micCtx.destination);
+    node.port.onmessage = (e) => {
+      cnt.level = e.data.rms; cnt.peak = Math.max(cnt.peak || 0, e.data.rms);
+      if (!ready || muted || !ws || ws.readyState !== 1) return;
+      // Without headphones the mic hears the AI's own voice, so pause the mic while it talks.
+      // (Time-based on purpose: it can never get stuck closed if playback stalls.)
+      if (!$('phones').checked && Date.now() < gateUntil) return;
+      cnt.mic++; if (cnt.mic % 3 === 0) showDbg();
+      ws.send(e.data.b);
     };
-  } catch (error) {
-    const message = error && error.name === 'NotAllowedError'
-      ? 'Please allow microphone access to start the call.'
-      : 'Could not access your microphone. Please try again.';
-    showError(message);
-    cleanup();
-    return;
+  } catch (e) {
+    showErr('Could not start audio: ' + e.message); cleanup(); return;
   }
 
-  const code = passcodeInput.value.trim();
-  const protocol = location.protocol === 'https:' ? 'wss://' : 'ws://';
-  const url = protocol + location.host + '/ws' + (code ? '?code=' + encodeURIComponent(code) : '');
-  ws = new WebSocket(url);
-  ws.binaryType = 'arraybuffer';
-
-  ws.onmessage = (event) => {
-    if (typeof event.data !== 'string') {
-      playPcm(event.data);
-      return;
-    }
-    let message;
-    try { message = JSON.parse(event.data); } catch (_) { return; }
-
-    if (message.type === 'ready') {
-      ready = true;
-      active = true;
-      setState('listening');
-      callBtn.textContent = 'End call';
-      callBtn.classList.add('end');
-      callBtn.disabled = false;
-      muteBtn.classList.remove('hidden');
-    } else if (message.type === 'user_text') {
+  const code = codeIn.value.trim();
+  const url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws' + (code ? '?code=' + encodeURIComponent(code) : '');
+  ws = new WebSocket(url); ws.binaryType = 'arraybuffer';
+  ws.onmessage = (ev) => {
+    if (typeof ev.data !== 'string') return playPcm(ev.data);
+    const m = JSON.parse(ev.data);
+    if (m.type === 'ready') {
+      clearInterval(watch); cnt.peak = 0;
+      watch = setInterval(() => {
+        if (!active || muted) return;
+        if ((cnt.peak || 0) < 0.002) showErr(`Your browser is hearing silence from "${micLabel}". Pick another microphone below, tick "turn off noise processing", or check Windows Settings > Privacy > Microphone and that the mic isn't muted. Then end the call and start again.`);
+        else if (errEl.textContent.startsWith('Your browser is hearing silence')) showErr('');
+        cnt.peak = 0;
+      }, 5000);
+      ws.send(JSON.stringify({ type: 'audio_format', rate: micCtx.sampleRate }));
+      ready = true; active = true; setState('listening'); chime();
+      callBtn.textContent = 'End call'; callBtn.classList.add('end'); callBtn.disabled = false;
+      showDbg(); setTimeout(() => { if (active && !cnt.voice && !cnt.ai) showErr('No reply received yet. Check the server terminal for messages.'); }, 9000);
+      muteBtn.classList.remove('hidden'); chipsEl.querySelectorAll('button').forEach(b => b.disabled = false);
+    } else if (m.type === 'user_text') {
+      if (curAI) curAI = null;
+      if (!curUser) curUser = addBubble('user', ''); appendTo(curUser, m.text); cnt.you++; showDbg();
+    } else if (m.type === 'model_text') {
+      if (curUser) curUser = null;
+      if (!curAI) curAI = addBubble('ai', ''); appendTo(curAI, m.text); cnt.ai++; showDbg();
+    } else if (m.type === 'turn_complete') {
       curAI = null;
-      if (!curUser) curUser = addBubble('user', '');
-      appendTo(curUser, message.text);
-    } else if (message.type === 'model_text') {
-      curUser = null;
-      if (!curAI) curAI = addBubble('ai', '');
-      appendTo(curAI, message.text);
-    } else if (message.type === 'turn_complete') {
-      curAI = null;
-    } else if (message.type === 'interrupted') {
-      stopPlayback();
-      curAI = null;
-      setState('listening');
-    } else if (message.type === 'error') {
-      showError(message.message || 'Something went wrong. Please try again.');
-      if (!active) cleanup();
+    } else if (m.type === 'interrupted') {
+      cnt.intr++; showDbg(); stopPlayback(); curAI = null; setState('listening');
+    } else if (m.type === 'error') {
+      showErr(m.message);
     }
   };
-
-  ws.onclose = () => {
-    if (active || !ready) cleanup();
-  };
-  ws.onerror = () => showError('Connection interrupted. Please try again.');
+  ws.onclose = () => { if (active || ready === false) endCall(true); };
+  ws.onerror = () => showErr('Connection problem. Please try again.');
 }
 
 function cleanup() {
-  ready = false;
-  active = false;
-  muted = false;
+  clearInterval(watch);
+  ready = false; active = false; muted = false;
   stopPlayback();
-  try { if (ws) { ws.onclose = null; ws.close(); } } catch (_) {}
-  ws = null;
-  try { if (micStream) micStream.getTracks().forEach(track => track.stop()); } catch (_) {}
-  micStream = null;
-  try { if (node) node.disconnect(); } catch (_) {}
-  node = null;
-  try { if (micCtx) micCtx.close(); } catch (_) {}
-  micCtx = null;
-  try { if (playCtx) playCtx.close(); } catch (_) {}
-  playCtx = null;
-  curUser = null;
-  curAI = null;
-  callBtn.textContent = 'Start call';
-  callBtn.classList.remove('end');
-  callBtn.disabled = false;
-  muteBtn.classList.add('hidden');
-  muteBtn.classList.remove('on');
-  muteBtn.setAttribute('aria-label', 'Mute microphone');
-  $('muteIcon').innerHTML = '<rect x="9" y="2.5" width="6" height="12" rx="3"></rect><path d="M5.5 10.5a6.5 6.5 0 0 0 13 0M12 17v4m-4 0h8"></path>';
+  try { if (ws) { ws.onclose = null; ws.close(); } } catch {} ws = null;
+  try { micStream && micStream.getTracks().forEach(t => t.stop()); } catch {} micStream = null;
+  try { node && node.disconnect(); } catch {} node = null;
+  try { micCtx && micCtx.close(); } catch {} micCtx = null;
+  try { playCtx && playCtx.close(); } catch {} playCtx = null;
+  curUser = curAI = null;
+  callBtn.textContent = 'Start call'; callBtn.classList.remove('end'); callBtn.disabled = false;
+  muteBtn.classList.add('hidden'); muteBtn.classList.remove('on'); muteBtn.textContent = '🎤';
+  chipsEl.querySelectorAll('button').forEach(b => b.disabled = true);
   setState('idle');
 }
+function endCall(fromServer) { cleanup(); if (fromServer && !errEl.textContent) statusEl.textContent = 'Call ended'; }
 
-function endCall() {
-  cleanup();
-  statusEl.textContent = 'Call ended';
+callBtn.onclick = () => (active ? endCall(false) : startCall());
+muteBtn.onclick = () => {
+  muted = !muted; muteBtn.classList.toggle('on', muted); muteBtn.textContent = muted ? '🔇' : '🎤';
+  setState(sources.size ? 'speaking' : 'listening');
+};
+
+// ---------- Quick questions (typed into the live session) ----------
+function sendText(q) {
+  if (!ws || ws.readyState !== 1 || !ready) return;
+  stopPlayback(); curAI = null; curUser = null;
+  addBubble('user', q);
+  ws.send(JSON.stringify({ type: 'text', text: q }));
 }
 
-callBtn.addEventListener('click', () => active ? endCall() : startCall());
-muteBtn.addEventListener('click', () => {
-  muted = !muted;
-  muteBtn.classList.toggle('on', muted);
-  muteBtn.setAttribute('aria-label', muted ? 'Unmute microphone' : 'Mute microphone');
-  $('muteIcon').innerHTML = muted
-    ? '<path d="M9 9v5a3 3 0 0 0 5.1 2.1M15 9V5.5a3 3 0 0 0-5.8-1M5.5 10.5a6.5 6.5 0 0 0 11.1 4.6M12 17v4m-4 0h8M3 3l18 18"></path>'
-    : '<rect x="9" y="2.5" width="6" height="12" rx="3"></rect><path d="M5.5 10.5a6.5 6.5 0 0 0 13 0M12 17v4m-4 0h8"></path>';
-  setState(sources.size ? 'speaking' : 'listening');
-});
-
-fetch('/config')
-  .then(response => {
-    if (!response.ok) throw new Error('Config unavailable');
-    return response.json();
-  })
-  .then(config => {
-    if (config.needs_passcode) passcodeInput.classList.remove('hidden');
-  })
-  .catch(() => {});
+fetch('/config').then(r => r.json()).then(cfg => {
+  if (cfg.needs_code) codeIn.classList.remove('hidden');
+  (cfg.quick_questions || []).forEach(q => {
+    const b = document.createElement('button'); b.className = 'chip'; b.textContent = q; b.disabled = true;
+    b.onclick = () => sendText(q); chipsEl.appendChild(b);
+  });
+}).catch(() => {});
 </script>
 </body>
 </html>
