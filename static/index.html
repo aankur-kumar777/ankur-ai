@@ -101,47 +101,74 @@ let nextTime = 0, sources = new Set(), muted = false, ready = false, active = fa
 let curUser = null, curAI = null, gateUntil = 0;
 const cnt = { mic: 0, voice: 0, you: 0, ai: 0, intr: 0, level: 0 };
 const dbg = $('dbg');
-function showDbg() { dbg.textContent = active ? `mic level ${Math.min(99, Math.round(cnt.level * 300))} · mic sent ${cnt.mic} · voice received ${cnt.voice} · you ${cnt.you} · ai ${cnt.ai} · interrupted ${cnt.intr} · speaker ${playCtx ? playCtx.state : '-'}` : ''; }
+function showDbg() {
+  dbg.textContent = active
+    ? `mic level ${Math.min(99, Math.round(cnt.level * 300))} · mic sent ${cnt.mic} · voice received ${cnt.voice} · you ${cnt.you} · ai ${cnt.ai} · interrupted ${cnt.intr} · speaker ${playCtx ? playCtx.state : '-'}`
+    : '';
+}
 
 // ---------- Microphone selection + test ----------
 const micSel = $('micSel');
-let micLabel = '', watch = null;
+let micLabel = '', watch = null, silenceStart = 0;
+
 async function loadDevices() {
   try {
     const devs = await navigator.mediaDevices.enumerateDevices();
     const cur = micSel.value;
     micSel.innerHTML = '<option value="">Default microphone</option>';
     devs.filter(d => d.kind === 'audioinput').forEach((d, i) => {
-      const o = document.createElement('option'); o.value = d.deviceId;
-      o.textContent = d.label || ('Microphone ' + (i + 1)); micSel.appendChild(o);
+      const o = document.createElement('option');
+      o.value = d.deviceId;
+      o.textContent = d.label || ('Microphone ' + (i + 1));
+      micSel.appendChild(o);
     });
     micSel.value = cur;
   } catch {}
 }
+
 function micConstraints() {
   const raw = $('raw').checked;
-  const a = { echoCancellation: !raw, noiseSuppression: !raw, autoGainControl: !raw, channelCount: 1 };
+  const a = {
+    echoCancellation: !raw,
+    noiseSuppression: !raw,
+    autoGainControl: !raw,
+    channelCount: 1
+  };
   if (micSel.value) a.deviceId = { exact: micSel.value };
   return { audio: a };
 }
+
 async function testMic() {
   if (active) return;
   showErr('');
   let s;
-  try { s = await navigator.mediaDevices.getUserMedia(micConstraints()); }
-  catch (e) { showErr('Microphone access was blocked or that device is unavailable: ' + e.message); return; }
+  try {
+    s = await navigator.mediaDevices.getUserMedia(micConstraints());
+  } catch (e) {
+    showErr('Microphone access was blocked or that device is unavailable: ' + e.message);
+    return;
+  }
   await loadDevices();
   const label = s.getAudioTracks()[0]?.label || 'microphone';
-  const ctx = new AudioContext(); await ctx.resume();
-  const an = ctx.createAnalyser(); an.fftSize = 1024; ctx.createMediaStreamSource(s).connect(an);
-  const buf = new Float32Array(an.fftSize); let peak = 0; const t0 = Date.now();
+  const ctx = new AudioContext();
+  await ctx.resume();
+  const an = ctx.createAnalyser();
+  an.fftSize = 1024;
+  ctx.createMediaStreamSource(s).connect(an);
+  const buf = new Float32Array(an.fftSize);
+  let peak = 0;
+  const t0 = Date.now();
   const iv = setInterval(() => {
     an.getFloatTimeDomainData(buf);
-    let sum = 0; for (const v of buf) sum += v * v;
-    const rms = Math.sqrt(sum / buf.length); peak = Math.max(peak, rms);
+    let sum = 0;
+    for (const v of buf) sum += v * v;
+    const rms = Math.sqrt(sum / buf.length);
+    peak = Math.max(peak, rms);
     dbg.textContent = `Testing "${label}" — say something… level ${Math.min(99, Math.round(rms * 300))}`;
     if (Date.now() - t0 > 6000) {
-      clearInterval(iv); s.getTracks().forEach(t => t.stop()); ctx.close();
+      clearInterval(iv);
+      s.getTracks().forEach(t => t.stop());
+      ctx.close();
       dbg.textContent = peak < 0.002
         ? `No sound from "${label}". Pick another microphone above, or tick "turn off noise processing".`
         : `Mic works: "${label}" (peak level ${Math.min(99, Math.round(peak * 300))}).`;
@@ -155,32 +182,60 @@ loadDevices();
 function setState(s) {
   orb.className = 'orb ' + s;
   const labels = {
-    idle: 'Ready when you are', connecting: 'Connecting…',
-    listening: '<b>Listening</b> — go ahead', speaking: '<b>Speaking</b> — talk to interrupt'
+    idle: 'Ready when you are',
+    connecting: 'Connecting…',
+    listening: '<b>Listening</b> — go ahead',
+    speaking: '<b>Speaking</b> — talk to interrupt'
   };
-  statusEl.innerHTML = muted && active && s !== 'connecting' ? 'Mic muted' : (labels[s] || '');
+  statusEl.innerHTML = muted && active && s !== 'connecting'
+    ? 'Mic muted'
+    : (labels[s] || '');
 }
-function showErr(msg) { errEl.textContent = msg; errEl.classList.toggle('hidden', !msg); }
+
+function showErr(msg) {
+  errEl.textContent = msg;
+  errEl.classList.toggle('hidden', !msg);
+}
+
 function addBubble(kind, text) {
   $('empty')?.remove();
   const d = document.createElement('div');
-  d.className = 'msg ' + kind; d.textContent = text; logEl.appendChild(d);
-  logEl.scrollTop = logEl.scrollHeight; return d;
+  d.className = 'msg ' + kind;
+  d.textContent = text;
+  logEl.appendChild(d);
+  logEl.scrollTop = logEl.scrollHeight;
+  return d;
 }
-function appendTo(bubble, text) { bubble.textContent += text; logEl.scrollTop = logEl.scrollHeight; }
 
-// ---------- Microphone capture: native-rate PCM16 from an AudioWorklet (Gemini resamples) ----------
+function appendTo(bubble, text) {
+  bubble.textContent += text;
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+// ---------- Microphone capture: native-rate PCM16 from an AudioWorklet ----------
 const workletSrc = `
 class Cap extends AudioWorkletProcessor {
-  constructor() { super(); this.size = Math.round(sampleRate * 0.1); this.buf = new Int16Array(this.size); this.n = 0; this.sum = 0; }
+  constructor() {
+    super();
+    this.size = Math.round(sampleRate * 0.1);
+    this.buf = new Int16Array(this.size);
+    this.n = 0;
+    this.sum = 0;
+  }
   process(inputs) {
-    const ch = inputs[0] && inputs[0][0]; if (!ch) return true;
+    const ch = inputs[0] && inputs[0][0];
+    if (!ch) return true;
     for (let i = 0; i < ch.length; i++) {
       const v = Math.max(-1, Math.min(1, ch[i]));
-      this.buf[this.n++] = v * 32767; this.sum += v * v;
+      this.buf[this.n++] = v * 32767;
+      this.sum += v * v;
       if (this.n === this.size) {
-        this.port.postMessage({ b: this.buf.slice().buffer, rms: Math.sqrt(this.sum / this.size) });
-        this.n = 0; this.sum = 0;
+        this.port.postMessage({
+          b: this.buf.slice().buffer,
+          rms: Math.sqrt(this.sum / this.size)
+        });
+        this.n = 0;
+        this.sum = 0;
       }
     }
     return true;
@@ -191,141 +246,282 @@ registerProcessor('cap', Cap);`;
 // ---------- Playback: schedule 24 kHz PCM16 chunks gaplessly ----------
 function playPcm(buf) {
   if (!playCtx) return;
-  cnt.voice++; showDbg();
+  cnt.voice++;
+  showDbg();
   if (buf.byteLength % 2) buf = buf.slice(0, buf.byteLength - 1);
-  const i16 = new Int16Array(buf), f32 = new Float32Array(i16.length);
+  const i16 = new Int16Array(buf);
+  const f32 = new Float32Array(i16.length);
   for (let i = 0; i < i16.length; i++) f32[i] = i16[i] / 32768;
-  const ab = playCtx.createBuffer(1, f32.length, 24000); ab.copyToChannel(f32, 0);
-  const src = playCtx.createBufferSource(); src.buffer = ab; src.connect(playCtx.destination);
+  const ab = playCtx.createBuffer(1, f32.length, 24000);
+  ab.copyToChannel(f32, 0);
+  const src = playCtx.createBufferSource();
+  src.buffer = ab;
+  src.connect(playCtx.destination);
   const now = playCtx.currentTime;
   if (nextTime < now + 0.03) nextTime = now + 0.03;
-  src.start(nextTime); nextTime += ab.duration;
+  src.start(nextTime);
+  nextTime += ab.duration;
   gateUntil = Date.now() + Math.max(0, (nextTime - playCtx.currentTime) * 1000) + 500;
   sources.add(src);
-  src.onended = () => { sources.delete(src); if (!sources.size && active) setState('listening'); };
+  src.onended = () => {
+    sources.delete(src);
+    if (!sources.size && active) setState('listening');
+  };
   setState('speaking');
 }
+
 function stopPlayback() {
-  sources.forEach((s) => { try { s.onended = null; s.stop(); } catch {} });
-  sources.clear(); nextTime = 0;
+  sources.forEach((s) => {
+    try { s.onended = null; s.stop(); } catch {}
+  });
+  sources.clear();
+  nextTime = 0;
 }
 
 // ---------- Call lifecycle ----------
-function chime() {  // short beep: if you hear this, your speaker output works
+function chime() {
   try {
-    const o = playCtx.createOscillator(), g = playCtx.createGain();
-    g.gain.value = 0.07; o.frequency.value = 660; o.connect(g); g.connect(playCtx.destination);
-    o.start(); o.stop(playCtx.currentTime + 0.15);
+    const o = playCtx.createOscillator();
+    const g = playCtx.createGain();
+    g.gain.value = 0.07;
+    o.frequency.value = 660;
+    o.connect(g);
+    g.connect(playCtx.destination);
+    o.start();
+    o.stop(playCtx.currentTime + 0.15);
   } catch {}
 }
+
 async function startCall() {
-  showErr(''); callBtn.disabled = true; setState('connecting');
-  // Must be created right inside the click handler or Safari/Chrome may keep it silent.
-  playCtx = new AudioContext({ sampleRate: 24000 }); playCtx.resume();
+  showErr('');
+  callBtn.disabled = true;
+  setState('connecting');
+
+  playCtx = new AudioContext({ sampleRate: 24000 });
+  playCtx.resume();
   Object.keys(cnt).forEach(k => cnt[k] = 0);
+
   try {
     micStream = await navigator.mediaDevices.getUserMedia(micConstraints());
-    micLabel = micStream.getAudioTracks()[0]?.label || 'microphone'; loadDevices();
+    micLabel = micStream.getAudioTracks()[0]?.label || 'microphone';
+    loadDevices();
   } catch (e) {
     showErr('Microphone access was blocked. Allow it in your browser settings and try again.');
-    callBtn.disabled = false; setState('idle'); return;
+    callBtn.disabled = false;
+    setState('idle');
+    return;
   }
+
   try {
     await playCtx.resume();
-    micCtx = new AudioContext(); await micCtx.resume();
-    await micCtx.audioWorklet.addModule(URL.createObjectURL(new Blob([workletSrc], { type: 'application/javascript' })));
+    micCtx = new AudioContext();
+    await micCtx.resume();
+    await micCtx.audioWorklet.addModule(
+      URL.createObjectURL(new Blob([workletSrc], { type: 'application/javascript' }))
+    );
     const srcNode = micCtx.createMediaStreamSource(micStream);
     node = new AudioWorkletNode(micCtx, 'cap');
-    const sink = micCtx.createGain(); sink.gain.value = 0;
-    srcNode.connect(node); node.connect(sink); sink.connect(micCtx.destination);
+    const sink = micCtx.createGain();
+    sink.gain.value = 0;
+    srcNode.connect(node);
+    node.connect(sink);
+    sink.connect(micCtx.destination);
+
     node.port.onmessage = (e) => {
-      cnt.level = e.data.rms; cnt.peak = Math.max(cnt.peak || 0, e.data.rms);
+      cnt.level = e.data.rms;
+      cnt.peak = Math.max(cnt.peak || 0, e.data.rms);
+
       if (!ready || muted || !ws || ws.readyState !== 1) return;
-      // Without headphones the mic hears the AI's own voice, so pause the mic while it talks.
-      // (Time-based on purpose: it can never get stuck closed if playback stalls.)
+
+      // Pause mic while AI is talking (unless headphones are used)
       if (!$('phones').checked && Date.now() < gateUntil) return;
-      cnt.mic++; if (cnt.mic % 3 === 0) showDbg();
+
+      cnt.mic++;
+      if (cnt.mic % 3 === 0) showDbg();
       ws.send(e.data.b);
     };
   } catch (e) {
-    showErr('Could not start audio: ' + e.message); cleanup(); return;
+    showErr('Could not start audio: ' + e.message);
+    cleanup();
+    return;
   }
 
   const code = codeIn.value.trim();
-  const url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws' + (code ? '?code=' + encodeURIComponent(code) : '');
-  ws = new WebSocket(url); ws.binaryType = 'arraybuffer';
+  const url = (location.protocol === 'https:' ? 'wss://' : 'ws://') +
+              location.host + '/ws' +
+              (code ? '?code=' + encodeURIComponent(code) : '');
+
+  ws = new WebSocket(url);
+  ws.binaryType = 'arraybuffer';
+
   ws.onmessage = (ev) => {
     if (typeof ev.data !== 'string') return playPcm(ev.data);
+
     const m = JSON.parse(ev.data);
+
     if (m.type === 'ready') {
-      clearInterval(watch); cnt.peak = 0;
+      clearInterval(watch);
+      cnt.peak = 0;
+      silenceStart = 0;
+
+      // Improved silence detector
       watch = setInterval(() => {
-        if (!active || muted) return;
-        if ((cnt.peak || 0) < 0.002) showErr(`Your browser is hearing silence from "${micLabel}". Pick another microphone below, tick "turn off noise processing", or check Windows Settings > Privacy > Microphone and that the mic isn't muted. Then end the call and start again.`);
-        else if (errEl.textContent.startsWith('Your browser is hearing silence')) showErr('');
+        if (!active || muted || sources.size > 0) {
+          // Don't complain while AI is speaking or mic is muted
+          silenceStart = 0;
+          return;
+        }
+
+        const peak = cnt.peak || 0;
         cnt.peak = 0;
-      }, 5000);
+
+        if (peak >= 0.0015) {
+          silenceStart = 0;
+          if (errEl.textContent.startsWith('Your browser is hearing silence')) {
+            showErr('');
+          }
+          return;
+        }
+
+        if (!silenceStart) silenceStart = Date.now();
+
+        // Only show warning after ~12 seconds of continuous silence
+        if (Date.now() - silenceStart > 12000) {
+          showErr(
+            `Your browser is hearing silence from "${micLabel}". ` +
+            `Pick another microphone below, tick "turn off noise processing", ` +
+            `or check Windows Settings > Privacy > Microphone and that the mic isn't muted. ` +
+            `Then end the call and start again.`
+          );
+        }
+      }, 2000);
+
       ws.send(JSON.stringify({ type: 'audio_format', rate: micCtx.sampleRate }));
-      ready = true; active = true; setState('listening'); chime();
-      callBtn.textContent = 'End call'; callBtn.classList.add('end'); callBtn.disabled = false;
-      showDbg(); setTimeout(() => { if (active && !cnt.voice && !cnt.ai) showErr('No reply received yet. Check the server terminal for messages.'); }, 9000);
-      muteBtn.classList.remove('hidden'); chipsEl.querySelectorAll('button').forEach(b => b.disabled = false);
+      ready = true;
+      active = true;
+      setState('listening');
+      chime();
+
+      callBtn.textContent = 'End call';
+      callBtn.classList.add('end');
+      callBtn.disabled = false;
+      showDbg();
+
+      setTimeout(() => {
+        if (active && !cnt.voice && !cnt.ai) {
+          showErr('No reply received yet. Check the server terminal for messages.');
+        }
+      }, 9000);
+
+      muteBtn.classList.remove('hidden');
+      chipsEl.querySelectorAll('button').forEach(b => b.disabled = false);
+
     } else if (m.type === 'user_text') {
       if (curAI) curAI = null;
-      if (!curUser) curUser = addBubble('user', ''); appendTo(curUser, m.text); cnt.you++; showDbg();
+      if (!curUser) curUser = addBubble('user', '');
+      appendTo(curUser, m.text);
+      cnt.you++;
+      showDbg();
+
     } else if (m.type === 'model_text') {
       if (curUser) curUser = null;
-      if (!curAI) curAI = addBubble('ai', ''); appendTo(curAI, m.text); cnt.ai++; showDbg();
+      if (!curAI) curAI = addBubble('ai', '');
+      appendTo(curAI, m.text);
+      cnt.ai++;
+      showDbg();
+
     } else if (m.type === 'turn_complete') {
       curAI = null;
+
     } else if (m.type === 'interrupted') {
-      cnt.intr++; showDbg(); stopPlayback(); curAI = null; setState('listening');
+      cnt.intr++;
+      showDbg();
+      stopPlayback();
+      curAI = null;
+      setState('listening');
+
     } else if (m.type === 'error') {
       showErr(m.message);
     }
   };
-  ws.onclose = () => { if (active || ready === false) endCall(true); };
+
+  ws.onclose = () => {
+    if (active || ready === false) endCall(true);
+  };
   ws.onerror = () => showErr('Connection problem. Please try again.');
 }
 
 function cleanup() {
   clearInterval(watch);
-  ready = false; active = false; muted = false;
+  silenceStart = 0;
+  ready = false;
+  active = false;
+  muted = false;
   stopPlayback();
-  try { if (ws) { ws.onclose = null; ws.close(); } } catch {} ws = null;
-  try { micStream && micStream.getTracks().forEach(t => t.stop()); } catch {} micStream = null;
-  try { node && node.disconnect(); } catch {} node = null;
-  try { micCtx && micCtx.close(); } catch {} micCtx = null;
-  try { playCtx && playCtx.close(); } catch {} playCtx = null;
+
+  try { if (ws) { ws.onclose = null; ws.close(); } } catch {}
+  ws = null;
+
+  try { micStream && micStream.getTracks().forEach(t => t.stop()); } catch {}
+  micStream = null;
+
+  try { node && node.disconnect(); } catch {}
+  node = null;
+
+  try { micCtx && micCtx.close(); } catch {}
+  micCtx = null;
+
+  try { playCtx && playCtx.close(); } catch {}
+  playCtx = null;
+
   curUser = curAI = null;
-  callBtn.textContent = 'Start call'; callBtn.classList.remove('end'); callBtn.disabled = false;
-  muteBtn.classList.add('hidden'); muteBtn.classList.remove('on'); muteBtn.textContent = '🎤';
+
+  callBtn.textContent = 'Start call';
+  callBtn.classList.remove('end');
+  callBtn.disabled = false;
+  muteBtn.classList.add('hidden');
+  muteBtn.classList.remove('on');
+  muteBtn.textContent = '🎤';
   chipsEl.querySelectorAll('button').forEach(b => b.disabled = true);
   setState('idle');
 }
-function endCall(fromServer) { cleanup(); if (fromServer && !errEl.textContent) statusEl.textContent = 'Call ended'; }
+
+function endCall(fromServer) {
+  cleanup();
+  if (fromServer && !errEl.textContent) statusEl.textContent = 'Call ended';
+}
 
 callBtn.onclick = () => (active ? endCall(false) : startCall());
+
 muteBtn.onclick = () => {
-  muted = !muted; muteBtn.classList.toggle('on', muted); muteBtn.textContent = muted ? '🔇' : '🎤';
+  muted = !muted;
+  muteBtn.classList.toggle('on', muted);
+  muteBtn.textContent = muted ? '🔇' : '🎤';
   setState(sources.size ? 'speaking' : 'listening');
 };
 
-// ---------- Quick questions (typed into the live session) ----------
+// ---------- Quick questions ----------
 function sendText(q) {
   if (!ws || ws.readyState !== 1 || !ready) return;
-  stopPlayback(); curAI = null; curUser = null;
+  stopPlayback();
+  curAI = null;
+  curUser = null;
   addBubble('user', q);
   ws.send(JSON.stringify({ type: 'text', text: q }));
 }
 
-fetch('/config').then(r => r.json()).then(cfg => {
-  if (cfg.needs_code) codeIn.classList.remove('hidden');
-  (cfg.quick_questions || []).forEach(q => {
-    const b = document.createElement('button'); b.className = 'chip'; b.textContent = q; b.disabled = true;
-    b.onclick = () => sendText(q); chipsEl.appendChild(b);
-  });
-}).catch(() => {});
+fetch('/config')
+  .then(r => r.json())
+  .then(cfg => {
+    if (cfg.needs_code) codeIn.classList.remove('hidden');
+    (cfg.quick_questions || []).forEach(q => {
+      const b = document.createElement('button');
+      b.className = 'chip';
+      b.textContent = q;
+      b.disabled = true;
+      b.onclick = () => sendText(q);
+      chipsEl.appendChild(b);
+    });
+  })
+  .catch(() => {});
 </script>
-</body>
-</html>
