@@ -33,7 +33,7 @@ except Exception:
     pass
 
 MODEL = os.getenv("LIVE_MODEL", "gemini-3.8-live")
-VOICE = os.getenv("LIVE_VOICE", "Kore")
+VOICE = os.getenv("LIVE_VOICE", "Charon")
 ACCESS_CODE = os.getenv("ACCESS_CODE", "").strip()          # optional: protects your API quota
 MAX_SESSION_SECONDS = int(os.getenv("MAX_SESSION_SECONDS", "600"))
 GREET = os.getenv("GREET", "1") != "0"
