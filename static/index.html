@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0c12">
+  <title>Ankur AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0c12;
+      --surface: #151722;
+      --line: #292d3b;
+      --text: #f4f5f8;
+      --muted: #9298a8;
+      --accent: #8274f5;
+      --accent-2: #5747c9;
+      --danger: #e45b68;
+    }
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; margin: 0; }
+    body {
+      min-height: 100svh;
+      padding: max(20px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
+      display: flex;
+      justify-content: center;
+      background: radial-gradient(ellipse at 50% 20%, rgba(105, 91, 220, .17), transparent 48%), var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', system-ui, sans-serif;
+    }
+    main {
+      width: min(100%, 520px);
+      min-height: calc(100svh - 38px);
+      display: flex;
+      flex-direction: column;
+    }
+    header { text-align: center; padding: clamp(42px, 11vh, 100px) 0 18px; }
+    .orb {
+      width: 112px;
+      height: 112px;
+      margin: 0 auto 26px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: white;
+      background: linear-gradient(145deg, #958aff, #5948c6 72%);
+      box-shadow: 0 12px 55px rgba(102, 86, 221, .27), inset 0 1px 1px rgba(255,255,255,.25);
+      transition: transform .25s ease, box-shadow .25s ease;
+      position: relative;
+    }
+    .orb::after {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border: 1px solid rgba(164, 153, 255, .65);
+      border-radius: 50%;
+      opacity: 0;
+    }
+    .orb.connecting { animation: breathe 1.2s ease-in-out infinite alternate; }
+    .orb.listening::after, .orb.speaking::after { animation: ring 2s ease-out infinite; }
+    .orb.speaking { animation: speak .55s ease-in-out infinite alternate; }
+    @keyframes ring { 0% { transform: scale(1); opacity: .5; } 100% { transform: scale(1.55); opacity: 0; } }
+    @keyframes speak { to { transform: scale(1.055); } }
+    @keyframes breathe { to { transform: scale(1.035); opacity: .8; } }
+    h1 { margin: 0; font-size: 1.8rem; font-weight: 700; letter-spacing: -.7px; }
+    .subtitle { margin: 9px 0 0; color: var(--muted); font-size: .98rem; }
+    .status {
+      min-height: 24px;
+      margin: 16px 0 18px;
+      color: #c5c8d3;
+      text-align: center;
+      font-size: .92rem;
+    }
+    #log {
+      width: 100%;
+      flex: 1;
+      min-height: 30px;
+      max-height: 30vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      padding: 4px 2px 14px;
+      scrollbar-width: thin;
+    }
+    .msg {
+      max-width: 88%;
+      padding: 10px 14px;
+      border-radius: 16px;
+      font-size: .94rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .msg.user { align-self: flex-end; background: #5548b5; border-bottom-right-radius: 5px; }
+    .msg.ai { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); border-bottom-left-radius: 5px; }
+    .error {
+      min-height: 20px;
+      margin: 4px 0 10px;
+      color: #ff929b;
+      text-align: center;
+      font-size: .9rem;
+    }
+    .passcode {
+      width: min(100%, 260px);
+      margin: 0 auto 12px;
+      padding: 12px 15px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      outline: none;
+      background: var(--surface);
+      color: var(--text);
+      font: inherit;
+      text-align: center;
+    }
+    .passcode:focus { border-color: var(--accent); }
+    .controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 0 18px;
+    }
+    button {
+      border: 0;
+      font: inherit;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button:disabled { opacity: .55; cursor: default; }
+    .call {
+      min-width: 174px;
+      min-height: 54px;
+      padding: 0 28px;
+      border-radius: 999px;
+      color: white;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 8px 28px rgba(99, 83, 210, .27);
+      font-weight: 700;
+      font-size: 1rem;
+    }
+    .call.end { background: var(--danger); box-shadow: 0 8px 25px rgba(228, 91, 104, .2); }
+    .round {
+      width: 52px;
+      height: 52px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: var(--surface);
+      color: var(--text);
+    }
+    .round.on { background: #3a2630; border-color: #75414c; }
+    .hidden { display: none !important; }
+    @media (max-height: 680px) {
+      header { padding-top: 26px; }
+      .orb { width: 88px; height: 88px; margin-bottom: 18px; }
+      #log { max-height: 24vh; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="orb" id="orb" aria-hidden="true">
+      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="9" y="2.5" width="6" height="12" rx="3"></rect>
+        <path d="M5.5 10.5a6.5 6.5 0 0 0 13 0M12 17v4m-4 0h8"></path>
+      </svg>
+    </div>
+    <h1>Ankur AI</h1>
+    <p class="subtitle">A voice conversation with Ankur</p>
+  </header>
+
+  <div class="status" id="status" aria-live="polite">Ready when you are</div>
+  <div id="log" aria-live="polite"></div>
+  <div class="error" id="error" role="status" aria-live="polite"></div>
+
+  <input id="passcode" class="passcode hidden" type="password" placeholder="Passcode" autocomplete="current-password" aria-label="Passcode">
+
+  <div class="controls">
+    <button class="round hidden" id="mute" type="button" aria-label="Mute microphone" title="Mute microphone">
+      <svg id="muteIcon" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="9" y="2.5" width="6" height="12" rx="3"></rect>
+        <path d="M5.5 10.5a6.5 6.5 0 0 0 13 0M12 17v4m-4 0h8"></path>
+      </svg>
+    </button>
+    <button class="call" id="call" type="button">Start call</button>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const orb = $('orb');
+const statusEl = $('status');
+const logEl = $('log');
+const errorEl = $('error');
+const callBtn = $('call');
+const muteBtn = $('mute');
+const passcodeInput = $('passcode');
+
+let ws = null;
+let micCtx = null;
+let micStream = null;
+let node = null;
+let playCtx = null;
+let nextTime = 0;
+let sources = new Set();
+let muted = false;
+let ready = false;
+let active = false;
+let curUser = null;
+let curAI = null;
+
+function setState(state) {
+  orb.className = 'orb ' + state;
+  const labels = {
+    idle: 'Ready when you are',
+    connecting: 'Connecting…',
+    listening: 'Listening',
+    speaking: 'Speaking'
+  };
+  statusEl.textContent = muted && active && state !== 'connecting'
+    ? 'Microphone muted'
+    : (labels[state] || '');
+}
+
+function showError(message = '') {
+  errorEl.textContent = message;
+}
+
+function addBubble(kind, text) {
+  const bubble = document.createElement('div');
+  bubble.className = 'msg ' + kind;
+  bubble.textContent = text;
+  logEl.appendChild(bubble);
+  logEl.scrollTop = logEl.scrollHeight;
+  return bubble;
+}
+
+function appendTo(bubble, text) {
+  bubble.textContent += text;
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+const workletSrc = `
+class Cap extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.size = Math.round(sampleRate * 0.1);
+    this.buf = new Int16Array(this.size);
+    this.n = 0;
+  }
+  process(inputs) {
+    const channel = inputs[0] && inputs[0][0];
+    if (!channel) return true;
+    for (let i = 0; i < channel.length; i++) {
+      const sample = Math.max(-1, Math.min(1, channel[i]));
+      this.buf[this.n++] = sample * 32767;
+      if (this.n === this.size) {
+        this.port.postMessage({ audio: this.buf.slice().buffer });
+        this.n = 0;
+      }
+    }
+    return true;
+  }
+}
+registerProcessor('cap', Cap);
+`;
+
+function playPcm(buffer) {
+  if (!playCtx) return;
+  if (buffer.byteLength % 2) buffer = buffer.slice(0, buffer.byteLength - 1);
+  const input = new Int16Array(buffer);
+  const samples = new Float32Array(input.length);
+  for (let i = 0; i < input.length; i++) samples[i] = input[i] / 32768;
+
+  const audioBuffer = playCtx.createBuffer(1, samples.length, 24000);
+  audioBuffer.copyToChannel(samples, 0);
+  const source = playCtx.createBufferSource();
+  source.buffer = audioBuffer;
+  source.connect(playCtx.destination);
+
+  const now = playCtx.currentTime;
+  if (nextTime < now + 0.03) nextTime = now + 0.03;
+  source.start(nextTime);
+  nextTime += audioBuffer.duration;
+  sources.add(source);
+  source.onended = () => {
+    sources.delete(source);
+    if (!sources.size && active) setState('listening');
+  };
+  setState('speaking');
+}
+
+function stopPlayback() {
+  sources.forEach((source) => {
+    try { source.onended = null; source.stop(); } catch (_) {}
+  });
+  sources.clear();
+  nextTime = 0;
+}
+
+async function startCall() {
+  showError('');
+  callBtn.disabled = true;
+  setState('connecting');
+
+  try {
+    playCtx = new AudioContext({ sampleRate: 24000 });
+    await playCtx.resume();
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        channelCount: 1
+      }
+    });
+    micCtx = new AudioContext();
+    await micCtx.resume();
+    const moduleUrl = URL.createObjectURL(new Blob([workletSrc], { type: 'application/javascript' }));
+    await micCtx.audioWorklet.addModule(moduleUrl);
+    URL.revokeObjectURL(moduleUrl);
+
+    const source = micCtx.createMediaStreamSource(micStream);
+    node = new AudioWorkletNode(micCtx, 'cap');
+    const silentSink = micCtx.createGain();
+    silentSink.gain.value = 0;
+    source.connect(node);
+    node.connect(silentSink);
+    silentSink.connect(micCtx.destination);
+
+    node.port.onmessage = (event) => {
+      if (!ready || muted || !ws || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(event.data.audio);
+    };
+  } catch (error) {
+    const message = error && error.name === 'NotAllowedError'
+      ? 'Please allow microphone access to start the call.'
+      : 'Could not access your microphone. Please try again.';
+    showError(message);
+    cleanup();
+    return;
+  }
+
+  const code = passcodeInput.value.trim();
+  const protocol = location.protocol === 'https:' ? 'wss://' : 'ws://';
+  const url = protocol + location.host + '/ws' + (code ? '?code=' + encodeURIComponent(code) : '');
+  ws = new WebSocket(url);
+  ws.binaryType = 'arraybuffer';
+
+  ws.onmessage = (event) => {
+    if (typeof event.data !== 'string') {
+      playPcm(event.data);
+      return;
+    }
+    let message;
+    try { message = JSON.parse(event.data); } catch (_) { return; }
+
+    if (message.type === 'ready') {
+      ready = true;
+      active = true;
+      setState('listening');
+      callBtn.textContent = 'End call';
+      callBtn.classList.add('end');
+      callBtn.disabled = false;
+      muteBtn.classList.remove('hidden');
+    } else if (message.type === 'user_text') {
+      curAI = null;
+      if (!curUser) curUser = addBubble('user', '');
+      appendTo(curUser, message.text);
+    } else if (message.type === 'model_text') {
+      curUser = null;
+      if (!curAI) curAI = addBubble('ai', '');
+      appendTo(curAI, message.text);
+    } else if (message.type === 'turn_complete') {
+      curAI = null;
+    } else if (message.type === 'interrupted') {
+      stopPlayback();
+      curAI = null;
+      setState('listening');
+    } else if (message.type === 'error') {
+      showError(message.message || 'Something went wrong. Please try again.');
+      if (!active) cleanup();
+    }
+  };
+
+  ws.onclose = () => {
+    if (active || !ready) cleanup();
+  };
+  ws.onerror = () => showError('Connection interrupted. Please try again.');
+}
+
+function cleanup() {
+  ready = false;
+  active = false;
+  muted = false;
+  stopPlayback();
+  try { if (ws) { ws.onclose = null; ws.close(); } } catch (_) {}
+  ws = null;
+  try { if (micStream) micStream.getTracks().forEach(track => track.stop()); } catch (_) {}
+  micStream = null;
+  try { if (node) node.disconnect(); } catch (_) {}
+  node = null;
+  try { if (micCtx) micCtx.close(); } catch (_) {}
+  micCtx = null;
+  try { if (playCtx) playCtx.close(); } catch (_) {}
+  playCtx = null;
+  curUser = null;
+  curAI = null;
+  callBtn.textContent = 'Start call';
+  callBtn.classList.remove('end');
+  callBtn.disabled = false;
+  muteBtn.classList.add('hidden');
+  muteBtn.classList.remove('on');
+  muteBtn.setAttribute('aria-label', 'Mute microphone');
+  $('muteIcon').innerHTML = '<rect x="9" y="2.5" width="6" height="12" rx="3"></rect><path d="M5.5 10.5a6.5 6.5 0 0 0 13 0M12 17v4m-4 0h8"></path>';
+  setState('idle');
+}
+
+function endCall() {
+  cleanup();
+  statusEl.textContent = 'Call ended';
+}
+
+callBtn.addEventListener('click', () => active ? endCall() : startCall());
+muteBtn.addEventListener('click', () => {
+  muted = !muted;
+  muteBtn.classList.toggle('on', muted);
+  muteBtn.setAttribute('aria-label', muted ? 'Unmute microphone' : 'Mute microphone');
+  $('muteIcon').innerHTML = muted
+    ? '<path d="M9 9v5a3 3 0 0 0 5.1 2.1M15 9V5.5a3 3 0 0 0-5.8-1M5.5 10.5a6.5 6.5 0 0 0 11.1 4.6M12 17v4m-4 0h8M3 3l18 18"></path>'
+    : '<rect x="9" y="2.5" width="6" height="12" rx="3"></rect><path d="M5.5 10.5a6.5 6.5 0 0 0 13 0M12 17v4m-4 0h8"></path>';
+  setState(sources.size ? 'speaking' : 'listening');
+});
+
+fetch('/config')
+  .then(response => {
+    if (!response.ok) throw new Error('Config unavailable');
+    return response.json();
+  })
+  .then(config => {
+    if (config.needs_passcode) passcodeInput.classList.remove('hidden');
+  })
+  .catch(() => {});
+</script>
+</body>
+</html>
